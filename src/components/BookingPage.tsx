@@ -20,7 +20,7 @@ const BARBERS = [
 ];
 
 const generateTimeSlots = () => {
-  const slots = [];
+  const slots: string[] = [];
   for (let hour = 9; hour < 19; hour++) {
     slots.push(`${hour.toString().padStart(2, "0")}:00`);
     slots.push(`${hour.toString().padStart(2, "0")}:30`);
@@ -29,10 +29,6 @@ const generateTimeSlots = () => {
 };
 
 const TIME_SLOTS = generateTimeSlots();
-
-const EXISTING_BOOKINGS: Record<string, string[]> = {
-  "2025-12-10": ["09:00", "12:30", "13:00", "17:30", "18:00", "18:30"]
-};
 
 function getDurationBlocks(service: typeof SERVICES[0] | null) {
   if (!service) return 0;
@@ -46,19 +42,57 @@ function getTimeIndex(time: string) {
   return TIME_SLOTS.indexOf(time);
 }
 
-function isTimeAvailable(date: Date | undefined, time: string, service: typeof SERVICES[0] | null) {
-  if (!date || !service) return true;
-  const dayKey = date.toISOString().split("T")[0];
-  const booked = EXISTING_BOOKINGS[dayKey] || [];
+function getLocalBookings(): Record<string, Record<string, string[]>> {
+  return JSON.parse(localStorage.getItem("bookings") || "{}");
+}
+
+function saveLocalBooking(date: string, barberId: string, times: string[]) {
+  const bookings = getLocalBookings();
+  if (!bookings[date]) bookings[date] = {};
+  if (!bookings[date][barberId]) bookings[date][barberId] = [];
+  bookings[date][barberId] = [...bookings[date][barberId], ...times];
+  localStorage.setItem("bookings", JSON.stringify(bookings));
+}
+
+function isTimeAvailable(
+  date: Date | undefined,
+  time: string,
+  service: typeof SERVICES[0] | null,
+  barber: typeof BARBERS[0] | null
+) {
+  if (!date || !service || !barber) return true;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const dateKey = `${year}-${month}-${day}`;
+
+  const allBookings = getLocalBookings();
+  const bookedTimes = allBookings[dateKey]?.[barber.id] || [];
+
   const durationBlocks = getDurationBlocks(service);
   const startIndex = getTimeIndex(time);
   if (startIndex === -1) return false;
   if (startIndex + durationBlocks > TIME_SLOTS.length) return false;
+
   for (let i = 0; i < durationBlocks; i++) {
     const slot = TIME_SLOTS[startIndex + i];
-    if (booked.includes(slot)) return false;
+    if (bookedTimes.includes(slot)) return false;
   }
+
   return true;
+}
+
+function getReservedBlocks(service: typeof SERVICES[0], time: string) {
+  const blocks = getDurationBlocks(service);
+  const start = getTimeIndex(time);
+  const reserved: string[] = [];
+
+  for (let i = 0; i < blocks; i++) {
+    reserved.push(TIME_SLOTS[start + i]);
+  }
+
+  return reserved;
 }
 
 interface BookingData {
@@ -74,6 +108,8 @@ interface BookingData {
 export function BookingPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+
   const navigate = useNavigate();
 
   const [bookingData, setBookingData] = useState<BookingData>({
@@ -112,6 +148,53 @@ export function BookingPage() {
 
   const handleConfirmBooking = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (bookingData.date && bookingData.time && bookingData.service && bookingData.barber) {
+      const year = bookingData.date.getFullYear();
+      const month = String(bookingData.date.getMonth() + 1).padStart(2, "0");
+      const day = String(bookingData.date.getDate()).padStart(2, "0");
+      const dateKey = `${year}-${month}-${day}`;
+
+      const stored = localStorage.getItem("appointments");
+      const existing = stored ? (JSON.parse(stored) as any[]) : [];
+
+      const alreadyBooked = existing.some(
+        (apt) =>
+          apt.date === dateKey &&
+          apt.time === bookingData.time &&
+          apt.clientEmail === bookingData.email &&
+          apt.clientPhone === bookingData.celular
+      );
+
+      if (alreadyBooked) {
+        setShowErrorModal(true);
+        return;
+      }
+
+      const blocks = getReservedBlocks(bookingData.service, bookingData.time);
+      saveLocalBooking(dateKey, bookingData.barber.id, blocks);
+
+      const durationMinutes = getDurationBlocks(bookingData.service) * 30;
+
+      const newAppointment = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        date: dateKey,
+        time: bookingData.time,
+        serviceId: bookingData.service.id,
+        serviceName: bookingData.service.name,
+        duration: durationMinutes,
+        price: bookingData.service.price,
+        barberId: bookingData.barber.id,
+        barberName: bookingData.barber.name,
+        clientName: bookingData.nomeCompleto,
+        clientEmail: bookingData.email,
+        clientPhone: bookingData.celular
+      };
+
+      existing.push(newAppointment);
+      localStorage.setItem("appointments", JSON.stringify(existing));
+    }
+
     setShowModal(true);
   };
 
@@ -125,6 +208,7 @@ export function BookingPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header isBookingPage={true} />
+
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-12 relative">
           <div className="absolute top-5 left-0 w-full h-1 bg-gray-300 -translate-y-1/2 z-0" />
@@ -132,6 +216,7 @@ export function BookingPage() {
             className="absolute top-5 left-0 h-1 bg-[#E67E22] -translate-y-1/2 z-0 transition-all duration-300"
             style={{ width: `${((currentStep - 1) / 3) * 100}%` }}
           />
+
           <div className="relative z-10 flex justify-between w-full">
             {[
               { step: 1, label: "Serviço" },
@@ -147,8 +232,13 @@ export function BookingPage() {
                       : "bg-gray-300 border-gray-300 text-gray-600"
                   }`}
                 >
-                  {item.step < currentStep ? <Check className="w-5 h-5" /> : item.step}
+                  {item.step < currentStep ? (
+                    <Check className="w-5 h-5" />
+                  ) : (
+                    item.step
+                  )}
                 </div>
+
                 <span className="text-sm text-gray-600 mt-2 text-center">
                   {item.label}
                 </span>
@@ -160,9 +250,8 @@ export function BookingPage() {
         <div className="bg-white rounded-lg shadow-md p-8">
           {currentStep === 1 && (
             <div>
-              <p className="text-[#1A1A1A] mb-4 text-lg font-normal">
-                E aí, o que vai ser?
-              </p>
+              <p className="text-[#1A1A1A] mb-4 text-lg font-normal">E aí, o que vai ser?</p>
+
               <div className="space-y-4">
                 {SERVICES.map((service) => (
                   <button
@@ -184,11 +273,12 @@ export function BookingPage() {
                   </button>
                 ))}
               </div>
+
               <div className="mt-8 flex justify-end">
                 <Button
                   onClick={handleNext}
                   disabled={!canProceedStep1}
-                  className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50"
                 >
                   Próximo
                 </Button>
@@ -198,9 +288,8 @@ export function BookingPage() {
 
           {currentStep === 2 && (
             <div>
-              <p className="text-[#1A1A1A] mb-4 text-lg font-normal">
-                E quem você escolhe?
-              </p>
+              <p className="text-[#1A1A1A] mb-4 text-lg font-normal">E quem você escolhe?</p>
+
               <div className="space-y-4">
                 {BARBERS.map((barber) => (
                   <button
@@ -217,18 +306,20 @@ export function BookingPage() {
                   </button>
                 ))}
               </div>
+
               <div className="mt-8 flex justify-between">
                 <Button
                   onClick={handleBack}
                   variant="outline"
-                  className="border-[#1A1A1A] text-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white"
+                  className="border-[#1A1A1A] text-[#1A1A1A]"
                 >
                   Voltar
                 </Button>
+
                 <Button
                   onClick={handleNext}
                   disabled={!canProceedStep2}
-                  className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50"
                 >
                   Próximo
                 </Button>
@@ -241,7 +332,10 @@ export function BookingPage() {
               <p className="text-[#1A1A1A] mb-4 text-lg font-normal">Beleza!</p>
 
               <div className="mb-2">
-                <p className="text-[#1A1A1A] mb-4 text-base font-normal">Que dia fica bom pra você?</p>
+                <p className="text-[#1A1A1A] mb-4 text-base font-normal">
+                  Que dia fica bom pra você?
+                </p>
+
                 <div className="flex justify-center">
                   <Calendar
                     mode="single"
@@ -253,17 +347,17 @@ export function BookingPage() {
                 </div>
               </div>
 
-              {bookingData.date && bookingData.service && (
+              {bookingData.date && bookingData.service && bookingData.barber && (
                 <div>
-                  <p className="text-[#1A1A1A] mb-4 text-base font-normal">
-                    E o horário, qual funciona melhor?
-                  </p>
+                  <p className="text-[#1A1A1A] mb-4 text-base font-normal">E o horário?</p>
+
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
                     {TIME_SLOTS.map((time) => {
                       const available = isTimeAvailable(
                         bookingData.date,
                         time,
-                        bookingData.service
+                        bookingData.service,
+                        bookingData.barber
                       );
 
                       return (
@@ -294,14 +388,15 @@ export function BookingPage() {
                 <Button
                   onClick={handleBack}
                   variant="outline"
-                  className="border-[#1A1A1A] text-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white"
+                  className="border-[#1A1A1A]"
                 >
                   Voltar
                 </Button>
+
                 <Button
                   onClick={handleNext}
                   disabled={!canProceedStep3}
-                  className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50"
                 >
                   Próximo
                 </Button>
@@ -311,66 +406,55 @@ export function BookingPage() {
 
           {currentStep === 4 && (
             <div>
-              <p className="text-[#1A1A1A] mb-4 text-lg font-normal">
-                Tudo certo?
-              </p>
-
+              <p className="text-[#1A1A1A] mb-4 text-lg font-normal">Tudo certo?</p>
               <p className="text-[#1A1A1A] mb-4 text-base font-normal">Confere aí rapidinho...</p>
 
               <div className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-gray-700">
-                  <div className="space-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
+                  <div>
                     <p className="text-sm text-gray-500">Serviço:</p>
-                    <p className="text-base text-[#1A1A1A]">
+                    <p>
                       {bookingData.service?.name} — {bookingData.service?.duration} —{" "}
                       {bookingData.service?.price}
                     </p>
                   </div>
 
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-sm text-gray-500">Barbeiro:</p>
-                    <p className="text-base text-[#1A1A1A]">
-                      {bookingData.barber?.name}
-                    </p>
+                    <p>{bookingData.barber?.name}</p>
                   </div>
 
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-sm text-gray-500">Especialidade:</p>
-                    <p className="text-base text-[#1A1A1A]">
-                      {bookingData.barber?.specialty}
-                    </p>
+                    <p>{bookingData.barber?.specialty}</p>
                   </div>
 
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-sm text-gray-500">Data:</p>
-                    <p className="text-base text-[#1A1A1A]">
-                      {bookingData.date?.toLocaleDateString("pt-BR")}
-                    </p>
+                    <p>{bookingData.date?.toLocaleDateString("pt-BR")}</p>
                   </div>
 
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-sm text-gray-500">Horário:</p>
-                    <p className="text-base text-[#1A1A1A]">{bookingData.time}</p>
+                    <p>{bookingData.time}</p>
                   </div>
                 </div>
               </div>
 
               <form onSubmit={handleConfirmBooking}>
-                <p className="text-[#1A1A1A] mb-4 text-base font-normal">Agora, preenche os campos abaixo, beleza? Assim, manteremos contato!</p>
+                <p className="text-[#1A1A1A] mb-4 text-base font-normal">Agora preenche os campos abaixo:</p>
 
                 <div className="space-y-5">
                   <div>
                     <Label htmlFor="nomeCompleto">Nome:</Label>
                     <Input
                       id="nomeCompleto"
-                      type="text"
                       value={bookingData.nomeCompleto}
                       onChange={(e) =>
                         setBookingData({ ...bookingData, nomeCompleto: e.target.value })
                       }
                       required
                       className="mt-1"
-                      placeholder="Francisco Victor da Silva Pinheiro"
                     />
                   </div>
 
@@ -385,7 +469,6 @@ export function BookingPage() {
                       }
                       required
                       className="mt-1"
-                      placeholder="exemple@exemple.com"
                     />
                   </div>
 
@@ -400,25 +483,19 @@ export function BookingPage() {
                       }
                       required
                       className="mt-1"
-                      placeholder="(00) 00000-0000"
                     />
                   </div>
                 </div>
 
                 <div className="mt-8 flex justify-between">
-                  <Button
-                    type="button"
-                    onClick={handleBack}
-                    variant="outline"
-                    className="border-[#1A1A1A] text-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white"
-                  >
+                  <Button onClick={handleBack} variant="outline" className="border-[#1A1A1A]">
                     Voltar
                   </Button>
 
                   <Button
                     type="submit"
                     disabled={!canProceedStep4}
-                    className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-[#E67E22] hover:bg-[#D35400] text-white disabled:opacity-50"
                   >
                     Confirmar
                   </Button>
@@ -437,7 +514,7 @@ export function BookingPage() {
             </h2>
 
             <p className="text-gray-600 text-center mb-8">
-              Por aqui, deu tudo certo! Dá uma conferida no e-mail, ok?
+              Seu horário foi reservado com sucesso!
             </p>
 
             <Button
@@ -446,6 +523,30 @@ export function BookingPage() {
                 navigate("/");
               }}
               className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white text-lg py-6 rounded-xl"
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-8 animate-fadeIn">
+            <h2 className="text-2xl font-semibold text-red-600 text-center mb-4">
+              Erro!
+            </h2>
+
+            <p className="text-gray-600 text-center mb-8">
+              Você já possui um agendamento neste horário.
+            </p>
+
+            <Button
+              onClick={() => {
+                setShowErrorModal(false);
+                navigate("/");
+              }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white text-lg py-6 rounded-xl"
             >
               OK
             </Button>
