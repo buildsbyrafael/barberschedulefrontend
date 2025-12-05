@@ -1,85 +1,80 @@
-# BarberSchedule Lite
+# ✂️ BarberSchedule Lite
 
-Este é o código-fonte do **BarberSchedule Lite**, uma aplicação front-end simples, desenvolvida com **React** e **Vite**.
+![Status do Projeto](https://img.shields.io/badge/Status-Prototipagem-orange) ![Licença](https://img.shields.io/badge/Licensa-Reservada-red)
 
-O projeto inclui:
+O **BarberSchedule Lite** é uma aplicação front-end, desenvolvida com **React** e **Vite**, focada em agendamento de serviços para uma barbearia.
 
-- Página inicial (landing page).  
-- Sistema de agendamento. 
-- Tela de login.  
-- Dashboard dos profissionais, com exibição dos agendamentos. 
-- Componentes do design, baseados no layout do Figma.  
+**Funcionalidades Principais:**
 
-Design original no Figma:
+- 🏠 **Landing Page:** Apresentação do negócio.
+- 📅 **Sistema de Agendamento:** Fluxo intuitivo para clientes.
+- 🔐 **Autenticação:** Tela de login segura.
+- 📊 **Painel do Profissional:** Visualização de agendamentos.
+- 🎨 **UI Design:** Componentes baseados num layout profissional.
 
-https://www.figma.com/pt-br/comunidade/file/1578834151539150314/barberschedule-lite
----
-
-## 🚀 Tecnologias Utilizadas:
-
-- **React + TypeScript**.
-- **Vite**.
-- **TailwindCSS**.
-- **Shadcn/UI**.
-- **Lucide Icons**.
+> **Design Original:** [Link do projeto no Figma!](https://www.figma.com/pt-br/comunidade/file/1578834151539150314/barberschedule-lite)
 
 ---
 
-## 🔧 Como Instalar e Rodar?
+## 🚀 Tecnologias Utilizadas
 
-Dentro da pasta do projeto, (após o `git clone`):
+O projeto foi construído utilizando as melhores práticas do ecossistema React:
+
+- [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- [Vite](https://vitejs.dev/)
+- [TailwindCSS](https://tailwindcss.com/)
+- [Shadcn/UI](https://ui.shadcn.com/)
+- [Lucide Icons](https://lucide.dev/)
+
+---
+
+## 🔧 Instalação e Execução
+
+Requisitos: Certifique-se de ter o **Node.js** instalado.
 
 ### 1. Instale as dependências:
-
-```
+```bash
 npm install
 ```
 
-### 2. Rode o servidor de desenvolvimento:
-
+### 2. Inicie o servidor:
+```bash
+npm install
 ```
-npm run dev
-```
 
-O projeto abrirá em:
+### 3. Acesse a aplicação:
 
-👉 http://localhost:5173/ (ou porta similar)
+O projeto estará disponível em: http://localhost:5173/
 
 ---
 
-## 🔐 Sobre o Login (IMPORTANTE):
+## 🔐 Credenciais de Acesso (Demo)
 
-A tela de login permite acesso apenas ao **modo profissional**.
+A tela de login é restrita ao modo profissional. Como o projeto não possui back-end persistente, utilize as credenciais hardcoded abaixo:
 
-Atualmente **não há cadastro**, e o único usuário permitido é o que está definido diretamente no código.
-
-As credenciais são:
-
-```
-E-mail: barbeiro1@barbearia.com.br
-
-Senha: 871374
+```bash
+E-mail:	barbeiro1@barbearia.com.br
+Senha:	871374
 ```
 
-Qualquer valor diferente disso fará o login falhar.
+> ⚠️ **Nota:** Qualquer credencial diferente resultará em falha!
 
 ---
 
-## 📁 Estrutura Geral:
+## 📁 Estrutura do Projeto
 
-As principais partes do projeto incluem:
+Visão geral dos diretórios e responsabilidades:
 
-- `LandingPage` – Página Inicial.  
-- `BookingPage` – Fluxo de Agendamento.  
-- `LoginPage` – Autenticação.  
-- `ProfessionalDashboard` – Painel com Agendamentos.
-
-- Componentes UI organizados em `/components/ui`
+- **LandingPage** – Página Inicial e apresentação.
+- **BookingPage** – Fluxo completo de agendamento.
+- **LoginPage** – Tela de autenticação.
+- **ProfessionalDashboard** – Painel administrativo.
+- **Components/UI** – Componentes reutilizáveis (botões, inputs, modais).
 
 ---
 
-## 📌 Observações:
+## 📌 **Observações Importantes:**
 
-- Todos os agendamentos e dados de login são armazenados via **localStorage**.  
-- O projeto serve como **prototipação/demonstração**.
-- Direiros são reservados! Ladrões de código serão processados.
+- Todos os agendamentos e sessões de login são simulados via localStorage.
+- Este projeto serve para fins de prototipação e demonstração de habilidades.
+- A reprodução total ou parcial deste código sem autorização expressa é proibida.
